@@ -12,34 +12,86 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
+// Paleta de colores personalizada
+private val Purple80 = Color(0xFFD0BCFF)
+private val PurpleGrey80 = Color(0xFFCCC2DC)
+private val Pink80 = Color(0xFFEFB8C8)
+private val Purple40 = Color(0xFF6650a4)
+private val PurpleGrey40 = Color(0xFF625b71)
+private val Pink40 = Color(0xFF7D5260)
+
+// Colores para deudas y errores
+private val ErrorDark = Color(0xFFFFB4AB)
+private val ErrorLight = Color(0xFFBA1A1A)
+private val ErrorContainerDark = Color(0xFF93000A)
+private val ErrorContainerLight = Color(0xFFFFDAD6)
+
 // Colores personalizados para modo oscuro
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFBB86FC),
+    primary = Color(0xFF6200EE),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF3700B3),
+    onPrimaryContainer = Color(0xFFEADDFF),
+
     secondary = Color(0xFF03DAC6),
-    tertiary = Color(0xFF3700B3),
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
-    onPrimary = Color.Black,
-    onSecondary = Color.Black,
+    onSecondary = Color(0xFF003735),
+    secondaryContainer = Color(0xFF004D48),
+    onSecondaryContainer = Color(0xFF6FF6EE),
+
+    tertiary = Color(0xFF7D5260),
     onTertiary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White,
-    error = Color(0xFFCF6679)
+    tertiaryContainer = Color(0xFF633B48),
+    onTertiaryContainer = Color(0xFFFFD8E4),
+
+    error = ErrorDark,
+    onError = Color(0xFF690005),
+    errorContainer = ErrorContainerDark,
+    onErrorContainer = Color(0xFFFFDAD6),
+
+    background = Color(0xFF1C1B1F),
+    onBackground = Color(0xFFE6E1E5),
+
+    surface = Color(0xFF1C1B1F),
+    onSurface = Color(0xFFE6E1E5),
+    surfaceVariant = Color(0xFF49454F),
+    onSurfaceVariant = Color(0xFFCAC4D0),
+
+    outline = Color(0xFF938F99),
+    outlineVariant = Color(0xFF49454F)
 )
 
 // Colores personalizados para modo claro
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF6200EE),
-    secondary = Color(0xFF03DAC5),
-    tertiary = Color(0xFF3700B3),
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
     onPrimary = Color.White,
+    primaryContainer = Color(0xFFEADDFF),
+    onPrimaryContainer = Color(0xFF21005D),
+
+    secondary = Color(0xFF03DAC5),
     onSecondary = Color.White,
+    secondaryContainer = Color(0xFFCCF8F4),
+    onSecondaryContainer = Color(0xFF002020),
+
+    tertiary = Color(0xFF7D5260),
     onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFD8E4),
+    onTertiaryContainer = Color(0xFF31111D),
+
+    error = ErrorLight,
+    onError = Color.White,
+    errorContainer = ErrorContainerLight,
+    onErrorContainer = Color(0xFF410002),
+
+    background = Color(0xFFFFFBFE),
     onBackground = Color(0xFF1C1B1F),
+
+    surface = Color(0xFFFFFBFE),
     onSurface = Color(0xFF1C1B1F),
-    error = Color(0xFFB00020)
+    surfaceVariant = Color(0xFFE7E0EC),
+    onSurfaceVariant = Color(0xFF49454F),
+
+    outline = Color(0xFF79747E),
+    outlineVariant = Color(0xFFCAC4D0)
 )
 
 @Composable
@@ -63,6 +115,7 @@ fun ControlTarjetasTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = Typography,
         content = content
     )
 }

@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import com.example.controltarjetas.data.Banco
 import com.example.controltarjetas.data.Tarjeta
+import java.io.File
 import java.text.NumberFormat
 import java.util.*
 
@@ -34,11 +35,11 @@ fun TarjetaCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFFFEBEE)
+            containerColor = MaterialTheme.colorScheme.errorContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -51,16 +52,18 @@ fun TarjetaCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     // Logo del banco
-                    if (banco.logoUri != null) {
+                    if (banco.logoUri != null && File(banco.logoUri).exists()) {
                         Image(
-                            painter = rememberAsyncImagePainter(banco.logoUri),
+                            painter = rememberAsyncImagePainter(File(banco.logoUri)),
                             contentDescription = "Logo ${banco.nombreBanco}",
                             modifier = Modifier
                                 .size(50.dp)
-                                .clip(CircleShape)
-                                .background(Color.LightGray),
+                                .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -72,7 +75,7 @@ fun TarjetaCard(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Build,
+                                imageVector = Icons.Default.AccountBalance,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(28.dp)
@@ -86,12 +89,13 @@ fun TarjetaCard(
                         Text(
                             text = banco.nombreBanco,
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Text(
                             text = tarjeta.tipoTarjeta,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -115,7 +119,13 @@ fun TarjetaCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Divider(
+                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Información de deuda
             Row(
@@ -125,14 +135,15 @@ fun TarjetaCard(
                 Column {
                     Text(
                         text = "Deuda Total",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formatoMoneda(tarjeta.deudaTotal),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFC62828)
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
 
@@ -140,48 +151,79 @@ fun TarjetaCard(
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = "Pago Mínimo",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = formatoMoneda(tarjeta.pagoMinimo),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Fecha límite y período
-            Row(
+            // Fecha límite y período en un card interno
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Fecha Límite",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = tarjeta.fechaLimitePago,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "Período: ${tarjeta.mesPeriodo}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Fecha Límite",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Text(
+                                text = tarjeta.fechaLimitePago,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = "Período",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = tarjeta.mesPeriodo,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
 
             // Límite de crédito (si existe)
             if (banco.limiteCredito != null && banco.limiteCredito > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 val porcentajeUso = (tarjeta.deudaTotal / banco.limiteCredito * 100).toInt()
 
@@ -192,42 +234,65 @@ fun TarjetaCard(
                     ) {
                         Text(
                             text = "Uso: $porcentajeUso%",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                         )
                         Text(
                             text = "Límite: ${formatoMoneda(banco.limiteCredito)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     LinearProgressIndicator(
-                        progress = (tarjeta.deudaTotal / banco.limiteCredito).toFloat(),
+                        progress = (tarjeta.deudaTotal / banco.limiteCredito).toFloat().coerceIn(0f, 1f),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(8.dp)
-                            .padding(top = 4.dp),
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp)),
                         color = when {
-                            porcentajeUso >= 80 -> Color(0xFFC62828)
+                            porcentajeUso >= 80 -> MaterialTheme.colorScheme.error
                             porcentajeUso >= 50 -> Color(0xFFF57C00)
                             else -> Color(0xFF2E7D32)
                         },
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
 
             // Notas (si existen)
             if (!tarjeta.notas.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Nota: ${tarjeta.notas}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.DarkGray,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = tarjeta.notas,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Botón marcar como pagada
             Button(
@@ -235,7 +300,8 @@ fun TarjetaCard(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF2E7D32)
-                )
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
@@ -243,7 +309,10 @@ fun TarjetaCard(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Marcar como Pagada")
+                Text(
+                    "Marcar como Pagada",
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }
