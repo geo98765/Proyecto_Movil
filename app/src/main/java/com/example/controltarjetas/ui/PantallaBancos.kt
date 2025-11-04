@@ -18,14 +18,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.controltarjetas.TarjetaViewModel
 import com.example.controltarjetas.data.Banco
+import com.example.controltarjetas.utils.ImageHelper
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,7 @@ fun PantallaBancos(
     viewModel: TarjetaViewModel = viewModel(),
     onNavigateBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val bancos by viewModel.todosBancos.collectAsState(initial = emptyList())
     var mostrarDialogoAgregar by remember { mutableStateOf(false) }
     var bancoAEditar by remember { mutableStateOf<Banco?>(null) }
@@ -73,21 +76,21 @@ fun PantallaBancos(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Default.Build,
+                        imageVector = Icons.Default.CreditCard,
                         contentDescription = null,
                         modifier = Modifier.size(80.dp),
-                        tint = Color.Gray
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "No hay bancos registrados",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "Toca + para agregar uno",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -144,7 +147,11 @@ fun PantallaBancos(
             text = { Text("¿Eliminar ${bancoAEliminar?.nombreBanco}? Esto también eliminará todas las tarjetas asociadas.") },
             confirmButton = {
                 TextButton(onClick = {
-                    bancoAEliminar?.let { viewModel.eliminarBanco(it) }
+                    bancoAEliminar?.let {
+                        // Eliminar imagen si existe
+                        it.logoUri?.let { path -> ImageHelper.deleteImage(path) }
+                        viewModel.eliminarBanco(it)
+                    }
                     mostrarDialogoEliminar = false
                     bancoAEliminar = null
                 }) {
@@ -168,8 +175,11 @@ fun BancoCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Row(
             modifier = Modifier
@@ -178,14 +188,13 @@ fun BancoCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Logo
-            if (banco.logoUri != null) {
+            if (banco.logoUri != null && File(banco.logoUri).exists()) {
                 Image(
-                    painter = rememberAsyncImagePainter(banco.logoUri),
+                    painter = rememberAsyncImagePainter(File(banco.logoUri)),
                     contentDescription = "Logo",
                     modifier = Modifier
                         .size(60.dp)
-                        .clip(CircleShape)
-                        .background(Color.LightGray),
+                        .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
             } else {
@@ -197,7 +206,7 @@ fun BancoCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Build,
+                        imageVector = Icons.Default.CreditCard,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(32.dp)
@@ -212,20 +221,30 @@ fun BancoCard(
                 Text(
                     text = banco.nombreBanco,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (banco.limiteCredito != null) {
                     Text(
                         text = "Límite: ${formatoMoneda(banco.limiteCredito)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (banco.fechaCorte != null) {
                     Text(
                         text = "Corte día: ${banco.fechaCorte}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                // NUEVO: Mostrar día de pago
+                if (banco.diaPago != null) {
+                    Text(
+                        text = "Pago día: ${banco.diaPago}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -247,15 +266,25 @@ fun DialogoAgregarEditarBanco(
     onDismiss: () -> Unit,
     onGuardar: (Banco) -> Unit
 ) {
+    val context = LocalContext.current
     var nombreBanco by remember { mutableStateOf(banco?.nombreBanco ?: "") }
     var limiteCredito by remember { mutableStateOf(banco?.limiteCredito?.toString() ?: "") }
     var fechaCorte by remember { mutableStateOf(banco?.fechaCorte?.toString() ?: "") }
-    var logoUri by remember { mutableStateOf(banco?.logoUri) }
+    var diaPago by remember { mutableStateOf(banco?.diaPago?.toString() ?: "") } // NUEVO
+    var logoPath by remember { mutableStateOf(banco?.logoUri) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        logoUri = uri?.toString()
+        uri?.let {
+            // Guardar imagen en almacenamiento interno
+            val savedPath = ImageHelper.saveImageToInternalStorage(context, it)
+            if (savedPath != null) {
+                // Eliminar imagen anterior si existe
+                logoPath?.let { oldPath -> ImageHelper.deleteImage(oldPath) }
+                logoPath = savedPath
+            }
+        }
     }
 
     AlertDialog(
@@ -271,13 +300,13 @@ fun DialogoAgregarEditarBanco(
                         .fillMaxWidth()
                         .height(120.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.LightGray)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { imagePickerLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (logoUri != null) {
+                    if (logoPath != null && File(logoPath!!).exists()) {
                         Image(
-                            painter = rememberAsyncImagePainter(logoUri),
+                            painter = rememberAsyncImagePainter(File(logoPath!!)),
                             contentDescription = "Logo",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
@@ -288,9 +317,13 @@ fun DialogoAgregarEditarBanco(
                                 imageVector = Icons.Default.AddCircle,
                                 contentDescription = null,
                                 modifier = Modifier.size(40.dp),
-                                tint = Color.Gray
+                                tint = MaterialTheme.colorScheme.primary
                             )
-                            Text("Toca para agregar logo", color = Color.Gray)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Toca para agregar logo",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -319,6 +352,25 @@ fun DialogoAgregarEditarBanco(
                     label = { Text("Día de Corte (1-31)") },
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // NUEVO: Campo para día de pago
+                OutlinedTextField(
+                    value = diaPago,
+                    onValueChange = {
+                        if (it.isEmpty() || (it.toIntOrNull() in 1..31)) {
+                            diaPago = it
+                        }
+                    },
+                    label = { Text("Día de Pago Límite (1-31)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = {
+                        Text(
+                            "Día límite de pago cada mes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                )
             }
         },
         confirmButton = {
@@ -329,9 +381,10 @@ fun DialogoAgregarEditarBanco(
                             Banco(
                                 id = banco?.id ?: 0,
                                 nombreBanco = nombreBanco,
-                                logoUri = logoUri,
+                                logoUri = logoPath,
                                 limiteCredito = limiteCredito.toDoubleOrNull(),
-                                fechaCorte = fechaCorte.toIntOrNull()
+                                fechaCorte = fechaCorte.toIntOrNull(),
+                                diaPago = diaPago.toIntOrNull() // NUEVO
                             )
                         )
                     }
@@ -345,8 +398,6 @@ fun DialogoAgregarEditarBanco(
             TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
-
-
         }
     )
 }

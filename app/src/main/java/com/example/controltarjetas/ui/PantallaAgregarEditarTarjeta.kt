@@ -16,6 +16,8 @@ import com.example.controltarjetas.TarjetaViewModel
 import com.example.controltarjetas.data.Tarjeta
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,14 +32,21 @@ fun PantallaAgregarEditarTarjeta(
     var tipoTarjeta by remember { mutableStateOf("Crédito") }
     var deudaTotal by remember { mutableStateOf("") }
     var pagoMinimo by remember { mutableStateOf("") }
-    var fechaLimitePago by remember { mutableStateOf(LocalDate.now()) }
     var notas by remember { mutableStateOf("") }
+
+    // NUEVO: En lugar de fecha, seleccionar mes/año
+    var mesSeleccionado by remember { mutableStateOf(YearMonth.now()) }
 
     var expandedBanco by remember { mutableStateOf(false) }
     var expandedTipo by remember { mutableStateOf(false) }
-    var mostrarDatePicker by remember { mutableStateOf(false) }
+    var expandedMes by remember { mutableStateOf(false) }
 
     val tiposTarjeta = listOf("Crédito", "Débito")
+
+    // NUEVO: Generar lista de meses (actual y siguientes 11)
+    val mesesDisponibles = remember {
+        (0..11).map { YearMonth.now().plusMonths(it.toLong()) }
+    }
 
     val esEdicion = tarjetaId != null
 
@@ -50,9 +59,22 @@ fun PantallaAgregarEditarTarjeta(
                 tipoTarjeta = it.tipoTarjeta
                 deudaTotal = it.deudaTotal.toString()
                 pagoMinimo = it.pagoMinimo?.toString() ?: ""
-                fechaLimitePago = LocalDate.parse(it.fechaLimitePago)
                 notas = it.notas ?: ""
+                // Cargar el mes del período
+                mesSeleccionado = YearMonth.parse(it.mesPeriodo)
             }
+        }
+    }
+
+    // NUEVO: Calcular fecha límite automáticamente
+    val fechaLimiteCalculada = remember(bancoSeleccionadoId, mesSeleccionado) {
+        val banco = bancos.find { it.id == bancoSeleccionadoId }
+        if (banco?.diaPago != null) {
+            val ultimoDiaDelMes = mesSeleccionado.lengthOfMonth()
+            val diaAjustado = banco.diaPago.coerceIn(1, ultimoDiaDelMes)
+            mesSeleccionado.atDay(diaAjustado)
+        } else {
+            null
         }
     }
 
@@ -120,24 +142,88 @@ fun PantallaAgregarEditarTarjeta(
                 ) {
                     bancos.forEach { banco ->
                         DropdownMenuItem(
-                            text = { Text(banco.nombreBanco) },
+                            text = {
+                                Column {
+                                    Text(banco.nombreBanco)
+                                    if (banco.diaPago != null) {
+                                        Text(
+                                            "Pago día: ${banco.diaPago}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    } else {
+                                        Text(
+                                            "⚠️ Sin día de pago configurado",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
+                            },
                             onClick = {
                                 bancoSeleccionadoId = banco.id
                                 expandedBanco = false
+                            }
+                        )
+                    }
+                }
+            }
 
-                                // Auto-rellenar fecha de corte si existe
-                                if (banco.fechaCorte != null) {
-                                    val hoy = LocalDate.now()
-                                    val mesActual = YearMonth.from(hoy)
-                                    val fechaCorteEsteMes = mesActual.atDay(banco.fechaCorte.coerceIn(1, mesActual.lengthOfMonth()))
+            // Advertencia si el banco no tiene día de pago
+            if (bancoSeleccionadoId != null) {
+                val bancoSeleccionado = bancos.find { it.id == bancoSeleccionadoId }
+                if (bancoSeleccionado?.diaPago == null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                null,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                "Este banco no tiene día de pago configurado. Por favor, edita el banco y agrega el día de pago límite.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
 
-                                    // Si ya pasó el corte este mes, usar el siguiente
-                                    fechaLimitePago = if (hoy.isAfter(fechaCorteEsteMes)) {
-                                        mesActual.plusMonths(1).atDay(banco.fechaCorte.coerceIn(1, mesActual.plusMonths(1).lengthOfMonth()))
-                                    } else {
-                                        fechaCorteEsteMes
-                                    }
-                                }
+            // NUEVO: Selector de mes/año
+            ExposedDropdownMenuBox(
+                expanded = expandedMes,
+                onExpandedChange = { expandedMes = it }
+            ) {
+                OutlinedTextField(
+                    value = "${mesSeleccionado.month.getDisplayName(TextStyle.FULL, Locale("es"))} ${mesSeleccionado.year}",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Mes del Período *") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMes) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = expandedMes,
+                    onDismissRequest = { expandedMes = false }
+                ) {
+                    mesesDisponibles.forEach { mes ->
+                        DropdownMenuItem(
+                            text = {
+                                Text("${mes.month.getDisplayName(TextStyle.FULL, Locale("es"))} ${mes.year}")
+                            },
+                            onClick = {
+                                mesSeleccionado = mes
+                                expandedMes = false
                             }
                         )
                     }
@@ -197,20 +283,6 @@ fun PantallaAgregarEditarTarjeta(
                 prefix = { Text("$") }
             )
 
-            // Fecha límite de pago con DatePicker
-            OutlinedTextField(
-                value = fechaLimitePago.toString(),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Fecha Límite de Pago *") },
-                trailingIcon = {
-                    IconButton(onClick = { mostrarDatePicker = true }) {
-                        Icon(Icons.Default.DateRange, "Seleccionar fecha")
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
             // Notas
             OutlinedTextField(
                 value = notas,
@@ -223,18 +295,44 @@ fun PantallaAgregarEditarTarjeta(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Información del mes/período
-            val mesPeriodo = YearMonth.from(fechaLimitePago).toString()
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Text(
-                    text = "Período: $mesPeriodo",
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            // NUEVO: Mostrar fecha calculada automáticamente
+            if (fechaLimiteCalculada != null) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Column {
+                                Text(
+                                    text = "Fecha de Pago Límite",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = fechaLimiteCalculada.toString(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "Período: $mesSeleccionado",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -242,15 +340,15 @@ fun PantallaAgregarEditarTarjeta(
             // Botón guardar
             Button(
                 onClick = {
-                    if (bancoSeleccionadoId != null && deudaTotal.isNotBlank()) {
+                    if (bancoSeleccionadoId != null && deudaTotal.isNotBlank() && fechaLimiteCalculada != null) {
                         val tarjeta = Tarjeta(
                             id = tarjetaId ?: 0,
                             bancoId = bancoSeleccionadoId!!,
                             tipoTarjeta = tipoTarjeta,
                             deudaTotal = deudaTotal.toDoubleOrNull() ?: 0.0,
                             pagoMinimo = pagoMinimo.toDoubleOrNull(),
-                            fechaLimitePago = fechaLimitePago.toString(),
-                            mesPeriodo = mesPeriodo,
+                            fechaLimitePago = fechaLimiteCalculada.toString(),
+                            mesPeriodo = mesSeleccionado.toString(),
                             notas = notas.ifBlank { null }
                         )
 
@@ -264,22 +362,12 @@ fun PantallaAgregarEditarTarjeta(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = bancoSeleccionadoId != null && deudaTotal.isNotBlank()
+                enabled = bancoSeleccionadoId != null &&
+                        deudaTotal.isNotBlank() &&
+                        fechaLimiteCalculada != null
             ) {
                 Text(if (esEdicion) "Actualizar" else "Guardar")
             }
         }
-    }
-
-    // DatePicker modal
-    if (mostrarDatePicker) {
-        DatePickerModal(
-            onDateSelected = { date ->
-                fechaLimitePago = date
-                mostrarDatePicker = false
-            },
-            onDismiss = { mostrarDatePicker = false },
-            initialDate = fechaLimitePago
-        )
     }
 }
