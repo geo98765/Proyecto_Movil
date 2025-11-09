@@ -31,13 +31,22 @@ fun TarjetaCard(
     onDeleteClick: () -> Unit,
     onMarcarPagada: () -> Unit
 ) {
+    // NUEVO: Calcular crédito disponible
+    val creditoDisponible = if (banco.limiteCredito != null) {
+        banco.limiteCredito - tarjeta.deudaTotal
+    } else null
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
+            containerColor = if (tarjeta.esMSI) {
+                MaterialTheme.colorScheme.tertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.errorContainer
+            }
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -46,6 +55,41 @@ fun TarjetaCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            // NUEVO: Badge MSI si aplica
+            if (tarjeta.esMSI && tarjeta.msiMesActual != null && tarjeta.msiMesesTotal != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiary,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "MSI ${tarjeta.msiMesActual}/${tarjeta.msiMesesTotal}",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiary
+                        )
+                        if (!tarjeta.msiDescripcion.isNullOrBlank()) {
+                            Text(
+                                text = "• ${tarjeta.msiDescripcion}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiary
+                            )
+                        }
+                    }
+                }
+            }
+
             // Encabezado: Logo, Banco y botones
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -75,7 +119,7 @@ fun TarjetaCard(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.AccountBalance,
+                                imageVector = Icons.Default.CreditCard,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(28.dp)
@@ -90,12 +134,20 @@ fun TarjetaCard(
                             text = banco.nombreBanco,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            color = if (tarjeta.esMSI) {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            }
                         )
                         Text(
                             text = tarjeta.tipoTarjeta,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                            color = if (tarjeta.esMSI) {
+                                MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                            }
                         )
                     }
                 }
@@ -122,7 +174,11 @@ fun TarjetaCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             Divider(
-                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f)
+                color = if (tarjeta.esMSI) {
+                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f)
+                } else {
+                    MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.2f)
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -134,17 +190,37 @@ fun TarjetaCard(
             ) {
                 Column {
                     Text(
-                        text = "Deuda Total",
+                        text = if (tarjeta.esMSI) "Pago Este Mes" else "Deuda Total",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                        color = if (tarjeta.esMSI) {
+                            MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                        } else {
+                            MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                        }
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formatoMoneda(tarjeta.deudaTotal),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error
+                        color = if (tarjeta.esMSI) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
                     )
+                    // NUEVO: Mostrar total MSI si aplica
+                    if (tarjeta.esMSI && tarjeta.msiMontoTotal != null) {
+                        Text(
+                            text = "Total: ${formatoMoneda(tarjeta.msiMontoTotal)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (tarjeta.esMSI) {
+                                MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.6f)
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.6f)
+                            }
+                        )
+                    }
                 }
 
                 if (tarjeta.pagoMinimo != null) {
@@ -152,14 +228,22 @@ fun TarjetaCard(
                         Text(
                             text = "Pago Mínimo",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                            color = if (tarjeta.esMSI) {
+                                MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                            }
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = formatoMoneda(tarjeta.pagoMinimo),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            color = if (tarjeta.esMSI) {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onErrorContainer
+                            }
                         )
                     }
                 }
@@ -167,7 +251,7 @@ fun TarjetaCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Fecha límite y período en un card interno
+            // Fecha límite y período
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -221,7 +305,7 @@ fun TarjetaCard(
                 }
             }
 
-            // Límite de crédito (si existe)
+            // NUEVO: Crédito Disponible y límite de crédito
             if (banco.limiteCredito != null && banco.limiteCredito > 0) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -232,16 +316,40 @@ fun TarjetaCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Uso: $porcentajeUso%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            text = "Límite: ${formatoMoneda(banco.limiteCredito)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
-                        )
+                        Column {
+                            Text(
+                                text = "Crédito Disponible",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = formatoMoneda(creditoDisponible ?: 0.0),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2E7D32)
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "Uso: $porcentajeUso%",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (tarjeta.esMSI) {
+                                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                }
+                            )
+                            Text(
+                                text = "Límite: ${formatoMoneda(banco.limiteCredito)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (tarjeta.esMSI) {
+                                    MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                }
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -262,7 +370,7 @@ fun TarjetaCard(
                 }
             }
 
-            // Notas (si existen)
+            // Notas
             if (!tarjeta.notas.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Card(

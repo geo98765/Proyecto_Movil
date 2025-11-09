@@ -23,6 +23,7 @@ import com.example.controltarjetas.data.Banco
 import com.example.controltarjetas.data.Tarjeta
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.time.YearMonth
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +49,9 @@ fun PantallaListaTarjetas(
     var mostrarDialogoConfirmarPago by remember { mutableStateOf(false) }
     var tarjetaAPagar by remember { mutableStateOf<Tarjeta?>(null) }
     var bancoTarjetaAPagar by remember { mutableStateOf<Banco?>(null) }
+
+    // NUEVO: Estado para dialog MSI
+    var mostrarDialogoMSI by remember { mutableStateOf(false) }
 
     // Crear mapa de bancos por ID para búsqueda rápida
     val bancosMap = remember(bancos) {
@@ -81,7 +85,7 @@ fun PantallaListaTarjetas(
                     }
                     IconButton(onClick = onNavigateBancos) {
                         Icon(
-                            Icons.Default.AccountBalance,
+                            Icons.Default.CreditCard,
                             "Bancos",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
@@ -102,23 +106,44 @@ fun PantallaListaTarjetas(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (bancos.isEmpty()) {
-                        // Mostrar mensaje de que necesita agregar bancos primero
-                    } else {
-                        onAgregarTarjeta()
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+            // NUEVO: Dos botones FAB
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.End
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Agregar tarjeta"
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Nueva Tarjeta")
+                // Botón MSI
+                if (bancos.isNotEmpty()) {
+                    SmallFloatingActionButton(
+                        onClick = { mostrarDialogoMSI = true },
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Agregar MSI"
+                        )
+                    }
+                }
+
+                // Botón agregar tarjeta normal
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        if (bancos.isEmpty()) {
+                            // Mostrar mensaje de que necesita agregar bancos primero
+                        } else {
+                            onAgregarTarjeta()
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Agregar tarjeta"
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Nueva Tarjeta")
+                }
             }
         }
     ) { paddingValues ->
@@ -145,7 +170,7 @@ fun PantallaListaTarjetas(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AccountBalance,
+                        imageVector = Icons.Default.CreditCard,
                         contentDescription = null,
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.primary
@@ -218,7 +243,7 @@ fun PantallaListaTarjetas(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AccountBalance,
+                            imageVector = Icons.Default.CreditCard,
                             contentDescription = null,
                             modifier = Modifier.size(80.dp),
                             tint = MaterialTheme.colorScheme.primary
@@ -243,7 +268,7 @@ fun PantallaListaTarjetas(
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
                         ) {
-                            Icon(Icons.Default.AccountBalance, null)
+                            Icon(Icons.Default.CreditCard, null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Ir a Bancos")
                         }
@@ -298,7 +323,7 @@ fun PantallaListaTarjetas(
             if (tarjetas.isNotEmpty()) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 150.dp)
                 ) {
                     items(tarjetas, key = { it.id }) { tarjeta ->
                         val banco = bancosMap[tarjeta.bancoId]
@@ -434,6 +459,26 @@ fun PantallaListaTarjetas(
                 }) {
                     Text("Cancelar")
                 }
+            }
+        )
+    }
+
+    // NUEVO: Diálogo para agregar MSI
+    if (mostrarDialogoMSI) {
+        DialogAgregarMSI(
+            bancos = bancos,
+            onDismiss = { mostrarDialogoMSI = false },
+            onConfirmar = { bancoId, descripcion, montoTotal, meses, mesInicio ->
+                viewModel.crearTarjetasMSI(
+                    bancoId = bancoId,
+                    descripcion = descripcion,
+                    montoTotal = montoTotal,
+                    meses = meses,
+                    mesInicio = mesInicio,
+                    onCompletado = {
+                        mostrarDialogoMSI = false
+                    }
+                )
             }
         )
     }

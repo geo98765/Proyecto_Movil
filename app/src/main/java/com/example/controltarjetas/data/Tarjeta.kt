@@ -34,5 +34,14 @@ data class Tarjeta(
     val estaPagada: Boolean = false,   // true = pagada este mes
 
     // Notas adicionales
-    val notas: String? = null          // Ej: "Usar para gasolina" (opcional)
+    val notas: String? = null,         // Ej: "Usar para gasolina" (opcional)
+
+    // NUEVO: Meses Sin Intereses (MSI)
+    val esMSI: Boolean = false,                // Si es parte de un MSI
+    val msiGrupoId: String? = null,            // ID único para agrupar MSI (ej: "msi_123456")
+    val msiDescripcion: String? = null,        // Descripción de la compra (ej: "Laptop Dell")
+    val msiMesActual: Int? = null,             // Mes actual (ej: 1 de 3)
+    val msiMesesTotal: Int? = null,            // Total de meses (ej: 3, 6, 9, 12)
+    val msiMontoTotal: Double? = null,         // Monto total de la compra original
+    val msiMontoPorMes: Double? = null         // Monto que se paga este mes
 )

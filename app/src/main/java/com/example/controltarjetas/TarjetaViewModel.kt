@@ -7,7 +7,9 @@ import com.example.controltarjetas.data.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 class TarjetaViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -91,6 +93,78 @@ class TarjetaViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun obtenerTarjetaPorBancoYMes(bancoId: Int, mesPeriodo: String): Tarjeta? {
         return tarjetaRepository.obtenerTarjetaPorBancoYMes(bancoId, mesPeriodo)
+    }
+
+    // ==================== MESES SIN INTERESES (MSI) ====================
+
+    /**
+     * Crea automáticamente las tarjetas MSI para cada mes
+     */
+    fun crearTarjetasMSI(
+        bancoId: Int,
+        descripcion: String,
+        montoTotal: Double,
+        meses: Int,
+        mesInicio: YearMonth,
+        onCompletado: () -> Unit
+    ) = viewModelScope.launch {
+        try {
+            // Obtener el banco para calcular fechas
+            val banco = bancoRepository.obtenerPorId(bancoId)
+
+            if (banco == null || banco.diaPago == null) {
+                // No se puede crear sin día de pago
+                return@launch
+            }
+
+            // Generar ID único para agrupar todas las tarjetas MSI
+            val msiGrupoId = "msi_${UUID.randomUUID()}"
+
+            // Calcular monto mensual
+            val montoPorMes = montoTotal / meses
+
+            // Crear una tarjeta para cada mes
+            for (mesActual in 1..meses) {
+                val mesPeriodo = mesInicio.plusMonths((mesActual - 1).toLong())
+
+                // Calcular fecha límite de pago
+                val ultimoDiaDelMes = mesPeriodo.lengthOfMonth()
+                val diaAjustado = banco.diaPago.coerceIn(1, ultimoDiaDelMes)
+                val fechaLimite = mesPeriodo.atDay(diaAjustado)
+
+                val tarjeta = Tarjeta(
+                    bancoId = bancoId,
+                    tipoTarjeta = "Crédito",
+                    deudaTotal = montoPorMes,
+                    pagoMinimo = null, // MSI no tiene pago mínimo, se paga completo
+                    fechaLimitePago = fechaLimite.toString(),
+                    mesPeriodo = mesPeriodo.toString(),
+                    notas = null,
+                    esMSI = true,
+                    msiGrupoId = msiGrupoId,
+                    msiDescripcion = descripcion,
+                    msiMesActual = mesActual,
+                    msiMesesTotal = meses,
+                    msiMontoTotal = montoTotal,
+                    msiMontoPorMes = montoPorMes
+                )
+
+                tarjetaRepository.insertar(tarjeta)
+            }
+
+            onCompletado()
+        } catch (e: Exception) {
+            // Manejar error
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Eliminar todas las tarjetas de un grupo MSI
+     */
+    fun eliminarGrupoMSI(msiGrupoId: String) = viewModelScope.launch {
+        // Esta función requeriría un método en el DAO
+        // Por ahora, se eliminarían individualmente
     }
 
     // ==================== BANCOS ====================
