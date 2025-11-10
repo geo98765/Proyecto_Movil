@@ -1,5 +1,7 @@
 package com.example.controltarjetas.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,19 +16,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.controltarjetas.AhorroViewModel
 import com.example.controltarjetas.InstitucionFinancieraViewModel
 import com.example.controltarjetas.data.Ahorro
 import java.time.LocalDate
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaAgregarEditarAhorro(
-    viewModel: AhorroViewModel = viewModel(),
-    institucionViewModel: InstitucionFinancieraViewModel = viewModel(),
-    ahorroId: Int? = null,
-    onNavigateBack: () -> Unit
+    viewModel: AhorroViewModel = viewModel(), // ← Cambiar orden
+    institucionViewModel: InstitucionFinancieraViewModel = viewModel(), // ← Cambiar orden
+    ahorroId: Int? = null, // ← Cambiar orden
+    onNavigateBack: () -> Unit  // ← Y esto
 ) {
     val esEdicion = ahorroId != null
     val instituciones by institucionViewModel.todasInstituciones.collectAsState(initial = emptyList())
@@ -57,7 +61,7 @@ fun PantallaAgregarEditarAhorro(
     // Cargar datos si es edición
     LaunchedEffect(ahorroId) {
         if (ahorroId != null) {
-            val ahorro = viewModel.obtenerAhorroPorId(ahorroId)
+            val ahorro = viewModel.obtenerPorId(ahorroId)
             ahorro?.let {
                 institucionSeleccionadaId = it.institucionId
                 nombre = it.nombre
@@ -65,7 +69,9 @@ fun PantallaAgregarEditarAhorro(
 
                 val inst = institucionViewModel.obtenerInstitucionPorId(it.institucionId)
                 when (inst?.tipoInversion) {
-                    "Tarjeta" -> montoTarjeta = it.montoTarjeta?.toString() ?: ""
+                    "Tarjeta" -> {
+                        montoTarjeta = it.montoTarjeta?.toString() ?: ""
+                    }
                     "Acciones" -> {
                         cantidadAcciones = it.cantidadAcciones?.toString() ?: ""
                         precioCompraAccion = it.precioCompraAccion?.toString() ?: ""
@@ -85,7 +91,6 @@ fun PantallaAgregarEditarAhorro(
             }
         }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -305,15 +310,13 @@ fun PantallaAgregarEditarAhorro(
                                 OutlinedTextField(
                                     value = precioCompraAccion,
                                     onValueChange = { precioCompraAccion = it },
-                                    label = { Text("Precio de Compra por Acción *") },
+                                    label = { Text("Precio Total por Acción *") },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                     modifier = Modifier.fillMaxWidth(),
                                     prefix = { Text("$") }
                                 )
                                 if (cantidadAcciones.isNotBlank() && precioCompraAccion.isNotBlank()) {
-                                    val cantidad = cantidadAcciones.toDoubleOrNull() ?: 0.0
                                     val precio = precioCompraAccion.toDoubleOrNull() ?: 0.0
-                                    val total = cantidad * precio
                                     Surface(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                                         shape = RoundedCornerShape(8.dp)
@@ -326,7 +329,7 @@ fun PantallaAgregarEditarAhorro(
                                         ) {
                                             Text("Inversión Total:")
                                             Text(
-                                                "$${String.format("%,.2f", total)}",
+                                                "$${String.format("%,.2f", precio)}",
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -372,9 +375,7 @@ fun PantallaAgregarEditarAhorro(
                                     prefix = { Text("$") }
                                 )
                                 if (cantidadCripto.isNotBlank() && precioCompraCripto.isNotBlank()) {
-                                    val cantidad = cantidadCripto.toDoubleOrNull() ?: 0.0
                                     val precio = precioCompraCripto.toDoubleOrNull() ?: 0.0
-                                    val total = cantidad * precio
                                     Surface(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                                         shape = RoundedCornerShape(8.dp)
@@ -387,7 +388,7 @@ fun PantallaAgregarEditarAhorro(
                                         ) {
                                             Text("Inversión Total:")
                                             Text(
-                                                "$${String.format("%,.2f", total)}",
+                                                "$${String.format("%,.2f", precio)}",
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -490,9 +491,9 @@ fun PantallaAgregarEditarAhorro(
                         )
 
                         if (esEdicion) {
-                            viewModel.actualizarAhorro(ahorro)
+                            viewModel.actualizar(ahorro)
                         } else {
-                            viewModel.insertarAhorro(ahorro)
+                            viewModel.insertar(ahorro)
                         }
 
                         onNavigateBack()

@@ -32,8 +32,8 @@ interface AhorroDao {
         SELECT i.tipoInversion, SUM(
             CASE 
                 WHEN i.tipoInversion = 'Tarjeta' THEN a.montoTarjeta
-                WHEN i.tipoInversion = 'Acciones' THEN a.cantidadAcciones * a.precioCompraAccion
-                WHEN i.tipoInversion = 'Cripto' THEN a.cantidadCripto * a.precioCompraCripto
+                WHEN i.tipoInversion = 'Acciones' THEN a.precioCompraAccion
+                WHEN i.tipoInversion = 'Cripto' THEN a.precioCompraCripto
                 WHEN i.tipoInversion = 'CETES' THEN a.montoCetes
                 ELSE 0
             END

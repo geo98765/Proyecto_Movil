@@ -35,7 +35,7 @@ import java.io.File
 @Composable
 fun PantallaInstitucionesFinancieras(
     viewModel: InstitucionFinancieraViewModel = viewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val instituciones by viewModel.todasInstituciones.collectAsState(initial = emptyList())
@@ -131,9 +131,9 @@ fun PantallaInstitucionesFinancieras(
             },
             onGuardar = { institucion ->
                 if (institucionAEditar != null) {
-                    viewModel.actualizarInstitucion(institucion)
+                    viewModel.actualizar(institucion)
                 } else {
-                    viewModel.insertarInstitucion(institucion)
+                    viewModel.insertar(institucion)
                 }
                 mostrarDialogoAgregar = false
                 institucionAEditar = null
@@ -151,7 +151,7 @@ fun PantallaInstitucionesFinancieras(
                 TextButton(onClick = {
                     institucionAEliminar?.let {
                         it.logoUri?.let { path -> ImageHelper.deleteImage(path) }
-                        viewModel.eliminarInstitucion(it)
+                        viewModel.eliminar(it)
                     }
                     mostrarDialogoEliminar = false
                     institucionAEliminar = null

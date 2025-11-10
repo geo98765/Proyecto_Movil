@@ -2,6 +2,8 @@ package com.example.controltarjetas.data
 
 import kotlinx.coroutines.flow.Flow
 
+// ==================== AHORRO REPOSITORY ====================
+
 class AhorroRepository(private val ahorroDao: AhorroDao) {
 
     val todosAhorros: Flow<List<Ahorro>> = ahorroDao.obtenerTodosAhorros()
@@ -23,11 +25,8 @@ class AhorroRepository(private val ahorroDao: AhorroDao) {
         return ahorroDao.obtenerAhorroPorId(id)
     }
 
-    suspend fun eliminarPorId(id: Int) {
-        ahorroDao.eliminarPorId(id)
-    }
-
-    fun obtenerAhorrosPorInstitucion(institucionId: Int): Flow<List<Ahorro>> {
+    fun obtenerPorInstitucion(institucionId: Int): Flow<List<Ahorro>> {
         return ahorroDao.obtenerAhorrosPorInstitucion(institucionId)
     }
 }
+

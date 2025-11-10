@@ -1,5 +1,6 @@
 package com.example.controltarjetas
 
+import InstitucionFinancieraRepository
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,19 +17,20 @@ class InstitucionFinancieraViewModel(application: Application) : AndroidViewMode
     init {
         val database = AppDatabase.getDatabase(application)
         institucionRepository = InstitucionFinancieraRepository(database.institucionFinancieraDao())
-
         todasInstituciones = institucionRepository.todasInstituciones
     }
 
-    fun insertarInstitucion(institucion: InstitucionFinanciera) = viewModelScope.launch {
+    // ==================== CRUD ====================
+
+    fun insertar(institucion: InstitucionFinanciera) = viewModelScope.launch {
         institucionRepository.insertar(institucion)
     }
 
-    fun actualizarInstitucion(institucion: InstitucionFinanciera) = viewModelScope.launch {
+    fun actualizar(institucion: InstitucionFinanciera) = viewModelScope.launch {
         institucionRepository.actualizar(institucion)
     }
 
-    fun eliminarInstitucion(institucion: InstitucionFinanciera) = viewModelScope.launch {
+    fun eliminar(institucion: InstitucionFinanciera) = viewModelScope.launch {
         institucionRepository.eliminar(institucion)
     }
 
@@ -36,7 +38,7 @@ class InstitucionFinancieraViewModel(application: Application) : AndroidViewMode
         return institucionRepository.obtenerPorId(id)
     }
 
-    fun obtenerInstitucionesPorTipo(tipo: String): Flow<List<InstitucionFinanciera>> {
+    fun obtenerPorTipo(tipo: String): Flow<List<InstitucionFinanciera>> {
         return institucionRepository.obtenerPorTipo(tipo)
     }
 }

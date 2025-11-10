@@ -1,11 +1,11 @@
 package com.example.controltarjetas.ui
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import android.os.Build
+import androidx.annotation.RequiresApi
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,21 +13,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
 import com.example.controltarjetas.AhorroViewModel
+import com.example.controltarjetas.data.*
 import com.example.controltarjetas.InstitucionFinancieraViewModel
-import com.example.controltarjetas.data.Ahorro
-import com.example.controltarjetas.data.InstitucionFinanciera
-import java.io.File
-import java.text.NumberFormat
-import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun PantallaListaAhorros(
     viewModel: AhorroViewModel = viewModel(),
@@ -35,47 +31,67 @@ fun PantallaListaAhorros(
     onAgregarAhorro: () -> Unit,
     onEditarAhorro: (Ahorro) -> Unit,
     onNavigateInstituciones: () -> Unit,
-    onOpenDrawer: () -> Unit
+    onOpenDrawer: () -> Unit,
+    onNavigateRendimientos: (() -> Unit)? = null  // ← AGREGAR ESTE PARÁMETRO
 ) {
     val ahorros by viewModel.todosAhorros.collectAsState(initial = emptyList())
-    val instituciones by institucionViewModel.todasInstituciones.collectAsState(initial = emptyList())
+    val instituciones by viewModel.todasInstituciones.collectAsState(initial = emptyList())
     val totalesPorTipo by viewModel.totalesPorTipo.collectAsState(initial = emptyList())
+    val estadoFiltros by viewModel.estadoFiltros.collectAsState()
 
-    var mostrarDialogoEliminar by remember { mutableStateOf(false) }
-    var ahorroAEliminar by remember { mutableStateOf<Ahorro?>(null) }
+    var mostrarFiltros by remember { mutableStateOf(false) }
+    var mostrarOrdenamiento by remember { mutableStateOf(false) }
+    var busqueda by remember { mutableStateOf("") }
 
-    // Crear mapa de instituciones por ID
-    val institucionesMap = remember(instituciones) {
-        instituciones.associateBy { it.id }
+    // Aplicar filtros
+    val ahorrosFiltrados = remember(ahorros, instituciones, estadoFiltros) {
+        viewModel.filtrarAhorros(ahorros, instituciones)
     }
 
-    val totalGeneral = remember(ahorros, instituciones) {
-        ahorros.sumOf { ahorro ->
-            val institucion = institucionesMap[ahorro.institucionId]
+    // Calcular total filtrado
+    val totalFiltrado = remember(ahorrosFiltrados, instituciones) {
+        val mapaInstituciones = instituciones.associateBy { it.id }
+        ahorrosFiltrados.sumOf { ahorro ->
+            val institucion = mapaInstituciones[ahorro.institucionId]
             ahorro.calcularValorTotal(institucion?.tipoInversion ?: "")
         }
+    }
+
+    // Contar filtros activos
+    val filtrosActivos = remember(estadoFiltros) {
+        var count = 0
+        if (estadoFiltros.tipoInversion != FiltroTipoInversion.TODOS) count++
+        if (estadoFiltros.institucionId != null) count++
+        if (estadoFiltros.busqueda.isNotBlank()) count++
+        count
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        "Mis Ahorros",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text("Mis Ahorros") },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Default.Menu, "Menú")
                     }
                 },
                 actions = {
+                    // NUEVO: Botón de rendimientos
+                    if (onNavigateRendimientos != null) {
+                        IconButton(onClick = onNavigateRendimientos) {
+                            Icon(
+                                Icons.Default.TrendingUp,
+                                contentDescription = "Ver Rendimientos",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+
+                    // Botón de instituciones (si ya lo tienes)
                     IconButton(onClick = onNavigateInstituciones) {
                         Icon(
                             Icons.Default.AccountBalance,
-                            "Instituciones",
+                            contentDescription = "Instituciones",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -89,325 +105,440 @@ fun PantallaListaAhorros(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = {
-                    if (instituciones.isEmpty()) {
-                        // Mostrar mensaje
-                    } else {
-                        onAgregarAhorro()
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar ahorro")
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Nuevo Ahorro")
-            }
+                onClick = onAgregarAhorro,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Agregar") }
+            )
         }
-    ) { paddingValues ->
-        Column(
+    ) { padding ->
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
         ) {
-            // Resumen total
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                ),
-                shape = RoundedCornerShape(20.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Column(
+            // Barra de búsqueda
+            item {
+                OutlinedTextField(
+                    value = busqueda,
+                    onValueChange = {
+                        busqueda = it
+                        viewModel.actualizarFiltros(
+                            estadoFiltros.copy(busqueda = it)
+                        )
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Savings,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.tertiary
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Total Ahorrado",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = formatoMoneda(totalGeneral),
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AccountBalance,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.tertiary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${ahorros.size} ahorro(s) activo(s)",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontWeight = FontWeight.Medium
-                            )
+                        .padding(16.dp),
+                    placeholder = { Text("Buscar por nombre, descripción o institución...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (busqueda.isNotEmpty()) {
+                            IconButton(onClick = {
+                                busqueda = ""
+                                viewModel.actualizarFiltros(
+                                    estadoFiltros.copy(busqueda = "")
+                                )
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Limpiar")
+                            }
                         }
-                    }
-                }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
             }
 
-            // Resumen por tipo
-            if (totalesPorTipo.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+            // Panel de filtros expandible
+            item {
+                AnimatedVisibility(
+                    visible = mostrarFiltros,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
                 ) {
-                    Column(
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            "Distribución por tipo",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        totalesPorTipo.forEach { tipo ->
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = when (tipo.tipoInversion) {
-                                            "Tarjeta" -> Icons.Default.CreditCard
-                                            "Acciones" -> Icons.Default.TrendingUp
-                                            "Cripto" -> Icons.Default.CurrencyBitcoin
-                                            "CETES" -> Icons.Default.AccountBalance
-                                            else -> Icons.Default.Savings
-                                        },
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        tipo.tipoInversion,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
                                 Text(
-                                    formatoMoneda(tipo.total),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                                    "Filtros",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
                                 )
+                                if (filtrosActivos > 0) {
+                                    TextButton(
+                                        onClick = {
+                                            viewModel.actualizarFiltros(
+                                                EstadoFiltrosAhorro(
+                                                    orden = estadoFiltros.orden
+                                                )
+                                            )
+                                            busqueda = ""
+                                        }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Clear,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Limpiar")
+                                    }
+                                }
+                            }
+
+                            // Filtro por tipo de inversión
+                            Column {
+                                Text(
+                                    "Tipo de Inversión",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    FiltroTipoInversion.values().forEach { tipo ->
+                                        FilterChip(
+                                            selected = estadoFiltros.tipoInversion == tipo,
+                                            onClick = {
+                                                viewModel.actualizarFiltros(
+                                                    estadoFiltros.copy(tipoInversion = tipo)
+                                                )
+                                            },
+                                            label = {
+                                                Text(
+                                                    when (tipo) {
+                                                        FiltroTipoInversion.TODOS -> "Todos"
+                                                        FiltroTipoInversion.TARJETA -> "Tarjeta"
+                                                        FiltroTipoInversion.ACCIONES -> "Acciones"
+                                                        FiltroTipoInversion.CRIPTO -> "Cripto"
+                                                        FiltroTipoInversion.CETES -> "CETES"
+                                                    }
+                                                )
+                                            },
+                                            leadingIcon = if (estadoFiltros.tipoInversion == tipo) {
+                                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            } else null
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Filtro por institución
+                            if (instituciones.isNotEmpty()) {
+                                Column {
+                                    Text(
+                                        "Institución Financiera",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        FilterChip(
+                                            selected = estadoFiltros.institucionId == null,
+                                            onClick = {
+                                                viewModel.actualizarFiltros(
+                                                    estadoFiltros.copy(institucionId = null)
+                                                )
+                                            },
+                                            label = { Text("Todas") },
+                                            leadingIcon = if (estadoFiltros.institucionId == null) {
+                                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            } else null
+                                        )
+                                        instituciones.forEach { institucion ->
+                                            FilterChip(
+                                                selected = estadoFiltros.institucionId == institucion.id,
+                                                onClick = {
+                                                    viewModel.actualizarFiltros(
+                                                        estadoFiltros.copy(
+                                                            institucionId = if (estadoFiltros.institucionId == institucion.id)
+                                                                null
+                                                            else
+                                                                institucion.id
+                                                        )
+                                                    )
+                                                },
+                                                label = { Text(institucion.nombreInstitucion) },
+                                                leadingIcon = if (estadoFiltros.institucionId == institucion.id) {
+                                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                                } else null
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Mensaje si no hay instituciones
-            if (instituciones.isEmpty()) {
+            // Resumen de total
+            item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     ),
-                    shape = RoundedCornerShape(16.dp)
+                    elevation = CardDefaults.cardElevation(4.dp)
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Column {
+                            Text(
+                                "Total Invertido",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                            Text(
+                                formatoMoneda2(totalFiltrado),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            if (filtrosActivos > 0) {
+                                Text(
+                                    "${ahorrosFiltrados.size} de ${ahorros.size} inversiones",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
                         Icon(
-                            imageVector = Icons.Default.AccountBalance,
+                            Icons.Default.Savings,
                             contentDescription = null,
-                            modifier = Modifier.size(80.dp),
+                            modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Primero agrega instituciones",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Necesitas agregar instituciones financieras antes de crear ahorros",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = onNavigateInstituciones,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
+                    }
+                }
+            }
+
+            // Distribución por tipo (si no hay filtros de tipo activos)
+            if (totalesPorTipo.isNotEmpty() && estadoFiltros.tipoInversion == FiltroTipoInversion.TODOS) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
                         ) {
-                            Icon(Icons.Default.AccountBalance, null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Ir a Instituciones")
+                            Text(
+                                "Distribución por Tipo",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            totalesPorTipo.forEach { tipo ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = when (tipo.tipoInversion) {
+                                                "Tarjeta" -> Icons.Default.CreditCard
+                                                "Acciones" -> Icons.Default.TrendingUp
+                                                "Cripto" -> Icons.Default.CurrencyBitcoin
+                                                "CETES" -> Icons.Default.AccountBalance
+                                                else -> Icons.Default.Savings
+                                            },
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            tipo.tipoInversion,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+                                    Text(
+                                        formatoMoneda2(tipo.total),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Lista de ahorros
-            if (instituciones.isNotEmpty() && ahorros.isEmpty()) {
-                Box(
+            // Encabezado de lista
+            item {
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        "Mis Inversiones",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "${ahorrosFiltrados.size} ${if (ahorrosFiltrados.size == 1) "inversión" else "inversiones"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            // Lista de ahorros
+            if (ahorrosFiltrados.isEmpty()) {
+                item {
                     Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        ),
-                        shape = RoundedCornerShape(16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(32.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Savings,
+                                Icons.Default.SearchOff,
                                 contentDescription = null,
-                                modifier = Modifier.size(80.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.secondary
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "No hay ahorros registrados",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                "No se encontraron inversiones",
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Comienza a registrar tus ahorros e inversiones",
+                                if (filtrosActivos > 0)
+                                    "Intenta ajustar los filtros"
+                                else
+                                    "Agrega tu primera inversión",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
                         }
                     }
                 }
-            } else if (ahorros.isNotEmpty()) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
-                    items(ahorros, key = { it.id }) { ahorro ->
-                        val institucion = institucionesMap[ahorro.institucionId]
-                        if (institucion != null) {
-                            AhorroCard(
-                                ahorro = ahorro,
-                                institucion = institucion,
-                                onEditClick = { onEditarAhorro(ahorro) },
-                                onDeleteClick = {
-                                    ahorroAEliminar = ahorro
-                                    mostrarDialogoEliminar = true
+            } else {
+                items(ahorrosFiltrados) { ahorro ->
+                    val institucion = instituciones.find { it.id == ahorro.institucionId }
+                    TarjetaAhorro(
+                        ahorro = ahorro,
+                        institucion = institucion,
+                        onClick = { onEditarAhorro(ahorro) }
+                    )
+                }
+            }
+
+            // Espacio al final
+            item {
+                Spacer(modifier = Modifier.height(80.dp))
+            }
+        }
+    }
+
+    // Diálogo de ordenamiento
+    if (mostrarOrdenamiento) {
+        AlertDialog(
+            onDismissRequest = { mostrarOrdenamiento = false },
+            title = { Text("Ordenar por") },
+            text = {
+                Column {
+                    OrdenAhorro.values().forEach { orden ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = estadoFiltros.orden == orden,
+                                onClick = {
+                                    viewModel.actualizarFiltros(
+                                        estadoFiltros.copy(orden = orden)
+                                    )
+                                    mostrarOrdenamiento = false
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                when (orden) {
+                                    OrdenAhorro.MONTO_DESC -> "Monto (Mayor a Menor)"
+                                    OrdenAhorro.MONTO_ASC -> "Monto (Menor a Mayor)"
+                                    OrdenAhorro.FECHA_DESC -> "Fecha (Más Reciente)"
+                                    OrdenAhorro.FECHA_ASC -> "Fecha (Más Antigua)"
+                                    OrdenAhorro.NOMBRE_ASC -> "Nombre (A-Z)"
+                                    OrdenAhorro.NOMBRE_DESC -> "Nombre (Z-A)"
                                 }
                             )
                         }
                     }
                 }
-            }
-        }
-    }
-
-    // Diálogo de confirmación para eliminar
-    if (mostrarDialogoEliminar && ahorroAEliminar != null) {
-        AlertDialog(
-            onDismissRequest = { mostrarDialogoEliminar = false },
-            icon = {
-                Icon(
-                    Icons.Default.Delete,
-                    null,
-                    tint = MaterialTheme.colorScheme.error
-                )
             },
-            title = { Text("Eliminar ahorro") },
-            text = { Text("¿Estás seguro de eliminar '${ahorroAEliminar?.nombre}'?") },
             confirmButton = {
-                Button(
-                    onClick = {
-                        ahorroAEliminar?.let { viewModel.eliminarAhorro(it) }
-                        mostrarDialogoEliminar = false
-                        ahorroAEliminar = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Eliminar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    mostrarDialogoEliminar = false
-                    ahorroAEliminar = null
-                }) {
-                    Text("Cancelar")
+                TextButton(onClick = { mostrarOrdenamiento = false }) {
+                    Text("Cerrar")
                 }
             }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AhorroCard(
+fun TarjetaAhorro(
     ahorro: Ahorro,
-    institucion: InstitucionFinanciera,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    institucion: InstitucionFinanciera?,
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        onClick = onClick,
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(
@@ -420,154 +551,47 @@ fun AhorroCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Logo de la institución
-                    if (institucion.logoUri != null && File(institucion.logoUri).exists()) {
-                        Image(
-                            painter = rememberAsyncImagePainter(File(institucion.logoUri)),
-                            contentDescription = "Logo ${institucion.nombreInstitucion}",
-                            modifier = Modifier
-                                .size(50.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = when (institucion.tipoInversion) {
-                                    "Tarjeta" -> Icons.Default.CreditCard
-                                    "Acciones" -> Icons.Default.TrendingUp
-                                    "Cripto" -> Icons.Default.CurrencyBitcoin
-                                    "CETES" -> Icons.Default.AccountBalance
-                                    else -> Icons.Default.Savings
-                                },
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column {
-                        Text(
-                            text = ahorro.nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = institucion.nombreInstitucion,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            shape = RoundedCornerShape(8.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        ahorro.nombre,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (institucion != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = institucion.tipoInversion,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                institucion.nombreInstitucion,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                            Text("•", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                institucion.tipoInversion,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
                 }
-
-                Row {
-                    IconButton(onClick = onEditClick) {
-                        Icon(Icons.Default.Edit, "Editar", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onDeleteClick) {
-                        Icon(Icons.Default.Delete, "Eliminar", tint = MaterialTheme.colorScheme.error)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Divider()
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Valor total
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
+                Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        "Valor Total",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        formatoMoneda(ahorro.calcularValorTotal(institucion.tipoInversion)),
-                        style = MaterialTheme.typography.headlineSmall,
+                        formatoMoneda2(ahorro.calcularValorTotal(institucion?.tipoInversion ?: "")),
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.tertiary
+                        color = MaterialTheme.colorScheme.primary
                     )
-                }
-
-                if (institucion.rendimientoAnual != null) {
-                    Column(horizontalAlignment = Alignment.End) {
+                    if (institucion?.rendimientoAnual != null) {
                         Text(
-                            "Rendimiento Anual",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "${institucion.rendimientoAnual}%",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            // Descripción
-            if (!ahorro.descripcion.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            ahorro.descripcion,
-                            style = MaterialTheme.typography.bodySmall
+                            "${institucion.rendimientoAnual}% anual",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
                 }
             }
         }
     }
-}
-
-private fun formatoMoneda(monto: Double): String {
-    val formato = NumberFormat.getCurrencyInstance(Locale("es", "MX"))
-    return formato.format(monto)
 }

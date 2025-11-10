@@ -1,10 +1,11 @@
-package com.example.controltarjetas.data
-
+import com.example.controltarjetas.data.InstitucionFinanciera
+import com.example.controltarjetas.data.InstitucionFinancieraDao
 import kotlinx.coroutines.flow.Flow
 
 class InstitucionFinancieraRepository(private val institucionDao: InstitucionFinancieraDao) {
 
-    val todasInstituciones: Flow<List<InstitucionFinanciera>> = institucionDao.obtenerTodasInstituciones()
+    val todasInstituciones: Flow<List<InstitucionFinanciera>> =
+        institucionDao.obtenerTodasInstituciones()
 
     suspend fun insertar(institucion: InstitucionFinanciera) {
         institucionDao.insertar(institucion)

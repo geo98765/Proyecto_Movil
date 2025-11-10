@@ -36,13 +36,16 @@ sealed class Pantalla(val ruta: String, val titulo: String, val icono: androidx.
     object Configuracion : Pantalla("configuracion", "Configuración", Icons.Default.Settings)
     object Estadisticas : Pantalla("estadisticas", "Estadísticas", Icons.Default.BarChart)
 
-    // Nuevas rutas para Ahorros
+    // Rutas para Ahorros
     object Ahorros : Pantalla("ahorros", "Mis Ahorros", Icons.Default.Savings)
     object AgregarAhorro : Pantalla("agregar_ahorro", "Agregar Ahorro", Icons.Default.Add)
     object EditarAhorro : Pantalla("editar_ahorro/{ahorroId}", "Editar Ahorro", Icons.Default.Edit) {
         fun crearRuta(ahorroId: Int) = "editar_ahorro/$ahorroId"
     }
     object InstitucionesFinancieras : Pantalla("instituciones_financieras", "Instituciones", Icons.Default.AccountBalance)
+
+    // NUEVA: Ruta para Rendimientos
+    object Rendimientos : Pantalla("rendimientos", "Rendimientos", Icons.Default.TrendingUp)
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -85,6 +88,8 @@ fun NavegacionApp(
             navController = navController,
             startDestination = Pantalla.Lista.ruta
         ) {
+            // ===== RUTAS DE TARJETAS =====
+
             // Pantalla principal - Lista de tarjetas
             composable(Pantalla.Lista.ruta) {
                 PantallaListaTarjetas(
@@ -198,6 +203,10 @@ fun NavegacionApp(
                     },
                     onOpenDrawer = {
                         scope.launch { drawerState.open() }
+                    },
+                    // NUEVO: Agregar navegación a rendimientos
+                    onNavigateRendimientos = {
+                        navController.navigate(Pantalla.Rendimientos.ruta)
                     }
                 )
             }
@@ -239,6 +248,13 @@ fun NavegacionApp(
                     onNavigateBack = {
                         navController.popBackStack()
                     }
+                )
+            }
+
+            // NUEVA: Pantalla de rendimientos
+            composable(Pantalla.Rendimientos.ruta) {
+                PantallaRendimientos(
+                    viewModel = ahorroViewModel
                 )
             }
         }
@@ -311,6 +327,14 @@ fun DrawerContent(
             label = "Mis Ahorros",
             isSelected = currentRoute == Pantalla.Ahorros.ruta,
             onClick = { onItemClick(Pantalla.Ahorros.ruta) }
+        )
+
+        // NUEVO: Rendimientos
+        DrawerItem(
+            icon = Icons.Default.TrendingUp,
+            label = "Rendimientos",
+            isSelected = currentRoute == Pantalla.Rendimientos.ruta,
+            onClick = { onItemClick(Pantalla.Rendimientos.ruta) }
         )
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))

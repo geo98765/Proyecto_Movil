@@ -49,8 +49,8 @@ data class Ahorro(
     fun calcularValorTotal(tipoInversion: String): Double {
         return when (tipoInversion) {
             "Tarjeta" -> montoTarjeta ?: 0.0
-            "Acciones" -> (cantidadAcciones ?: 0.0) * (precioCompraAccion ?: 0.0)
-            "Cripto" -> (cantidadCripto ?: 0.0) * (precioCompraCripto ?: 0.0)
+            "Acciones" -> precioCompraAccion ?: 0.0
+            "Cripto" -> precioCompraCripto ?: 0.0
             "CETES" -> montoCetes ?: 0.0
             else -> 0.0
         }
