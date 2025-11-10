@@ -1,6 +1,7 @@
 package com.example.controltarjetas
-
 import android.app.Application
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.controltarjetas.data.*
@@ -8,7 +9,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 class TarjetaViewModel(application: Application) : AndroidViewModel(application) {
@@ -49,6 +49,48 @@ class TarjetaViewModel(application: Application) : AndroidViewModel(application)
         pagosPorFecha = database.historialPagoDao().obtenerPagosPorFecha()
     }
 
+    // ==================== FILTROS ====================
+
+    /**
+     * Función para filtrar tarjetas por fecha
+     */
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun filtrarTarjetasPorFecha(tarjetas: List<Tarjeta>, filtro: FiltroFecha): List<Tarjeta> {
+        val hoy = LocalDate.now()
+        return when (filtro) {
+            FiltroFecha.PROXIMAS_3_SEMANAS -> {
+                val limite = hoy.plusWeeks(3)
+                tarjetas.filter {
+                    val fechaLimite = LocalDate.parse(it.fechaLimitePago)
+                    !fechaLimite.isBefore(hoy) && !fechaLimite.isAfter(limite)
+                }
+            }
+            FiltroFecha.ESTA_SEMANA -> {
+                val limite = hoy.plusWeeks(1)
+                tarjetas.filter {
+                    val fechaLimite = LocalDate.parse(it.fechaLimitePago)
+                    !fechaLimite.isBefore(hoy) && !fechaLimite.isAfter(limite)
+                }
+            }
+            FiltroFecha.ESTE_MES -> {
+                val limite = hoy.plusMonths(1)
+                tarjetas.filter {
+                    val fechaLimite = LocalDate.parse(it.fechaLimitePago)
+                    !fechaLimite.isBefore(hoy) && !fechaLimite.isAfter(limite)
+                }
+            }
+            FiltroFecha.TODAS -> tarjetas
+        }
+    }
+
+    /**
+     * Función para calcular deuda total por banco (suma de todas las tarjetas del mismo banco)
+     */
+    fun calcularDeudaTotalPorBanco(tarjetas: List<Tarjeta>, bancoId: Int): Double {
+        return tarjetas.filter { it.bancoId == bancoId && !it.estaPagada }
+            .sumOf { it.deudaTotal }
+    }
+
     // ==================== TARJETAS ====================
 
     fun insertarTarjeta(tarjeta: Tarjeta) = viewModelScope.launch {
@@ -68,6 +110,7 @@ class TarjetaViewModel(application: Application) : AndroidViewModel(application)
     }
 
     // Marcar como pagada y mover al historial
+    @RequiresApi(Build.VERSION_CODES.O)
     fun marcarComoPagadaYGuardarHistorial(
         tarjeta: Tarjeta,
         banco: Banco,
@@ -100,6 +143,7 @@ class TarjetaViewModel(application: Application) : AndroidViewModel(application)
     /**
      * Crea automáticamente las tarjetas MSI para cada mes
      */
+    @RequiresApi(Build.VERSION_CODES.O)
     fun crearTarjetasMSI(
         bancoId: Int,
         descripcion: String,
@@ -159,14 +203,6 @@ class TarjetaViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /**
-     * Eliminar todas las tarjetas de un grupo MSI
-     */
-    fun eliminarGrupoMSI(msiGrupoId: String) = viewModelScope.launch {
-        // Esta función requeriría un método en el DAO
-        // Por ahora, se eliminarían individualmente
-    }
-
     // ==================== BANCOS ====================
 
     fun insertarBanco(banco: Banco) = viewModelScope.launch {
@@ -194,4 +230,12 @@ class TarjetaViewModel(application: Application) : AndroidViewModel(application)
     fun eliminarHistorial(id: Int) = viewModelScope.launch {
         historialRepository.eliminar(id)
     }
+}
+
+// Enum para los filtros de fecha
+enum class FiltroFecha {
+    PROXIMAS_3_SEMANAS,
+    ESTA_SEMANA,
+    ESTE_MES,
+    TODAS
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
+import com.example.controltarjetas.TarjetaViewModel
 import com.example.controltarjetas.data.Banco
 import com.example.controltarjetas.data.Tarjeta
 import java.io.File
@@ -27,14 +28,24 @@ import java.util.*
 fun TarjetaCard(
     tarjeta: Tarjeta,
     banco: Banco,
+    todasLasTarjetas: List<Tarjeta>,
+    viewModel: TarjetaViewModel,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onMarcarPagada: () -> Unit
 ) {
-    // NUEVO: Calcular crédito disponible
+    // Calcular la deuda total del banco (suma de todas las tarjetas del mismo banco)
+    val deudaTotalDelBanco = viewModel.calcularDeudaTotalPorBanco(todasLasTarjetas, banco.id)
+
+    // Calcular crédito disponible usando la deuda total del banco
     val creditoDisponible = if (banco.limiteCredito != null) {
-        banco.limiteCredito - tarjeta.deudaTotal
+        banco.limiteCredito - deudaTotalDelBanco
     } else null
+
+    // Calcular porcentaje de uso basado en la deuda total del banco
+    val porcentajeUso = if (banco.limiteCredito != null && banco.limiteCredito > 0) {
+        (deudaTotalDelBanco / banco.limiteCredito * 100).toInt()
+    } else 0
 
     Card(
         modifier = Modifier
@@ -55,7 +66,7 @@ fun TarjetaCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // NUEVO: Badge MSI si aplica
+            // Badge MSI si aplica
             if (tarjeta.esMSI && tarjeta.msiMesActual != null && tarjeta.msiMesesTotal != null) {
                 Surface(
                     color = MaterialTheme.colorScheme.tertiary,
@@ -209,7 +220,7 @@ fun TarjetaCard(
                             MaterialTheme.colorScheme.error
                         }
                     )
-                    // NUEVO: Mostrar total MSI si aplica
+                    // Mostrar total MSI si aplica
                     if (tarjeta.esMSI && tarjeta.msiMontoTotal != null) {
                         Text(
                             text = "Total: ${formatoMoneda(tarjeta.msiMontoTotal)}",
@@ -305,11 +316,9 @@ fun TarjetaCard(
                 }
             }
 
-            // NUEVO: Crédito Disponible y límite de crédito
+            // Crédito Disponible y límite de crédito
             if (banco.limiteCredito != null && banco.limiteCredito > 0) {
                 Spacer(modifier = Modifier.height(16.dp))
-
-                val porcentajeUso = (tarjeta.deudaTotal / banco.limiteCredito * 100).toInt()
 
                 Column {
                     Row(
@@ -354,8 +363,38 @@ fun TarjetaCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    // Mostrar nota si hay múltiples deudas del mismo banco
+                    val numeroTarjetasBanco = todasLasTarjetas.count { it.bancoId == banco.id && !it.estaPagada }
+                    if (numeroTarjetasBanco > 1) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Tienes $numeroTarjetasBanco pagos con este banco (${formatoMoneda(deudaTotalDelBanco)} total)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
                     LinearProgressIndicator(
-                        progress = (tarjeta.deudaTotal / banco.limiteCredito).toFloat().coerceIn(0f, 1f),
+                        progress = (deudaTotalDelBanco / banco.limiteCredito).toFloat().coerceIn(0f, 1f),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(10.dp)

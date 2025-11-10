@@ -18,12 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.controltarjetas.FiltroFecha
 import com.example.controltarjetas.TarjetaViewModel
 import com.example.controltarjetas.data.Banco
 import com.example.controltarjetas.data.Tarjeta
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
-import java.time.YearMonth
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,6 +43,18 @@ fun PantallaListaTarjetas(
 
     val scope = rememberCoroutineScope()
 
+    // Estado del filtro - Por defecto próximas 3 semanas
+    var filtroSeleccionado by remember { mutableStateOf(FiltroFecha.PROXIMAS_3_SEMANAS) }
+    var expandedFiltro by remember { mutableStateOf(false) }
+
+    // Estado para el menú FAB
+    var expandedFab by remember { mutableStateOf(false) }
+
+    // Aplicar filtro a las tarjetas
+    val tarjetasFiltradas = remember(tarjetas, filtroSeleccionado) {
+        viewModel.filtrarTarjetasPorFecha(tarjetas, filtroSeleccionado)
+    }
+
     var mostrarDialogoEliminar by remember { mutableStateOf(false) }
     var tarjetaAEliminar by remember { mutableStateOf<Tarjeta?>(null) }
 
@@ -50,7 +62,6 @@ fun PantallaListaTarjetas(
     var tarjetaAPagar by remember { mutableStateOf<Tarjeta?>(null) }
     var bancoTarjetaAPagar by remember { mutableStateOf<Banco?>(null) }
 
-    // NUEVO: Estado para dialog MSI
     var mostrarDialogoMSI by remember { mutableStateOf(false) }
 
     // Crear mapa de bancos por ID para búsqueda rápida
@@ -106,43 +117,78 @@ fun PantallaListaTarjetas(
             )
         },
         floatingActionButton = {
-            // NUEVO: Dos botones FAB
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                // Botón MSI
-                if (bancos.isNotEmpty()) {
-                    SmallFloatingActionButton(
-                        onClick = { mostrarDialogoMSI = true },
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Agregar MSI"
-                        )
-                    }
-                }
-
-                // Botón agregar tarjeta normal
+            // Nuevo FAB con menú desplegable
+            Box {
                 ExtendedFloatingActionButton(
-                    onClick = {
-                        if (bancos.isEmpty()) {
-                            // Mostrar mensaje de que necesita agregar bancos primero
-                        } else {
-                            onAgregarTarjeta()
-                        }
-                    },
+                    onClick = { expandedFab = !expandedFab },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Agregar tarjeta"
+                        contentDescription = "Nuevo Pago"
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Nueva Tarjeta")
+                    Text("Nuevo Pago")
+                }
+
+                // Menú desplegable
+                DropdownMenu(
+                    expanded = expandedFab,
+                    onDismissRequest = { expandedFab = false }
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(Icons.Default.CreditCard, null)
+                                Column {
+                                    Text(
+                                        "Pago Normal",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "Un solo pago",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            expandedFab = false
+                            if (bancos.isNotEmpty()) {
+                                onAgregarTarjeta()
+                            }
+                        },
+                        enabled = bancos.isNotEmpty()
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(Icons.Default.ShoppingCart, null)
+                                Column {
+                                    Text(
+                                        "Meses Sin Intereses",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "Pagos mensuales automáticos",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            expandedFab = false
+                            mostrarDialogoMSI = true
+                        },
+                        enabled = bancos.isNotEmpty()
+                    )
                 }
             }
         }
@@ -152,7 +198,7 @@ fun PantallaListaTarjetas(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Resumen de deuda total - Mejorado
+            // Resumen de deuda total
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -211,11 +257,135 @@ fun PantallaListaTarjetas(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "${tarjetas.size} tarjeta(s) activa(s)",
+                                text = "${tarjetas.size} pago(s) activo(s)",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Medium
                             )
+                        }
+                    }
+                }
+            }
+
+            // Filtro de fechas
+            if (tarjetas.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary
+                            )
+                            Column {
+                                Text(
+                                    "Filtrar por fecha",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    "${tarjetasFiltradas.size} de ${tarjetas.size} pagos",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+
+                        ExposedDropdownMenuBox(
+                            expanded = expandedFiltro,
+                            onExpandedChange = { expandedFiltro = it }
+                        ) {
+                            AssistChip(
+                                onClick = { expandedFiltro = true },
+                                label = {
+                                    Text(
+                                        when (filtroSeleccionado) {
+                                            FiltroFecha.PROXIMAS_3_SEMANAS -> "3 semanas"
+                                            FiltroFecha.ESTA_SEMANA -> "Esta semana"
+                                            FiltroFecha.ESTE_MES -> "Este mes"
+                                            FiltroFecha.TODAS -> "Todos"
+                                        }
+                                    )
+                                },
+                                trailingIcon = {
+                                    Icon(
+                                        Icons.Default.ArrowDropDown,
+                                        contentDescription = null
+                                    )
+                                },
+                                modifier = Modifier.menuAnchor()
+                            )
+
+                            ExposedDropdownMenu(
+                                expanded = expandedFiltro,
+                                onDismissRequest = { expandedFiltro = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Próximas 3 semanas") },
+                                    onClick = {
+                                        filtroSeleccionado = FiltroFecha.PROXIMAS_3_SEMANAS
+                                        expandedFiltro = false
+                                    },
+                                    leadingIcon = {
+                                        if (filtroSeleccionado == FiltroFecha.PROXIMAS_3_SEMANAS) {
+                                            Icon(Icons.Default.Check, null)
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Esta semana") },
+                                    onClick = {
+                                        filtroSeleccionado = FiltroFecha.ESTA_SEMANA
+                                        expandedFiltro = false
+                                    },
+                                    leadingIcon = {
+                                        if (filtroSeleccionado == FiltroFecha.ESTA_SEMANA) {
+                                            Icon(Icons.Default.Check, null)
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Este mes") },
+                                    onClick = {
+                                        filtroSeleccionado = FiltroFecha.ESTE_MES
+                                        expandedFiltro = false
+                                    },
+                                    leadingIcon = {
+                                        if (filtroSeleccionado == FiltroFecha.ESTE_MES) {
+                                            Icon(Icons.Default.Check, null)
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Todos los pagos") },
+                                    onClick = {
+                                        filtroSeleccionado = FiltroFecha.TODAS
+                                        expandedFiltro = false
+                                    },
+                                    leadingIcon = {
+                                        if (filtroSeleccionado == FiltroFecha.TODAS) {
+                                            Icon(Icons.Default.Check, null)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -257,7 +427,7 @@ fun PantallaListaTarjetas(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Necesitas agregar al menos un banco antes de crear tarjetas",
+                            text = "Necesitas agregar al menos un banco antes de crear pagos",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -305,14 +475,14 @@ fun PantallaListaTarjetas(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No hay tarjetas registradas",
+                            text = "No hay pagos registrados",
                             style = MaterialTheme.typography.titleLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Toca el botón + para agregar tu primera tarjeta",
+                            text = "Toca 'Nuevo Pago' para agregar tu primer pago",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -320,17 +490,57 @@ fun PantallaListaTarjetas(
                 }
             }
 
-            if (tarjetas.isNotEmpty()) {
+            // Mostrar mensaje si no hay resultados del filtro
+            if (tarjetas.isNotEmpty() && tarjetasFiltradas.isEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(60.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No hay pagos en este período",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Cambia el filtro para ver más pagos",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (tarjetasFiltradas.isNotEmpty()) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 150.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    items(tarjetas, key = { it.id }) { tarjeta ->
+                    items(tarjetasFiltradas, key = { it.id }) { tarjeta ->
                         val banco = bancosMap[tarjeta.bancoId]
                         if (banco != null) {
                             TarjetaCard(
                                 tarjeta = tarjeta,
                                 banco = banco,
+                                todasLasTarjetas = tarjetas,
+                                viewModel = viewModel,
                                 onEditClick = { onEditarTarjeta(tarjeta) },
                                 onDeleteClick = {
                                     tarjetaAEliminar = tarjeta
@@ -360,10 +570,10 @@ fun PantallaListaTarjetas(
                     tint = MaterialTheme.colorScheme.error
                 )
             },
-            title = { Text("Eliminar tarjeta") },
+            title = { Text("Eliminar pago") },
             text = {
                 val banco = bancosMap[tarjetaAEliminar?.bancoId]
-                Text("¿Estás seguro de eliminar la tarjeta de ${banco?.nombreBanco}?")
+                Text("¿Estás seguro de eliminar el pago de ${banco?.nombreBanco}?")
             },
             confirmButton = {
                 Button(
@@ -463,7 +673,7 @@ fun PantallaListaTarjetas(
         )
     }
 
-    // NUEVO: Diálogo para agregar MSI
+    // Diálogo para agregar MSI
     if (mostrarDialogoMSI) {
         DialogAgregarMSI(
             bancos = bancos,
