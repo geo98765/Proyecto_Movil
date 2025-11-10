@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,6 +23,7 @@ import com.example.controltarjetas.FiltroFecha
 import com.example.controltarjetas.TarjetaViewModel
 import com.example.controltarjetas.data.Banco
 import com.example.controltarjetas.data.Tarjeta
+import com.example.controltarjetas.preferences.PreferencesManager
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.*
@@ -35,17 +37,42 @@ fun PantallaListaTarjetas(
     onNavigateBancos: () -> Unit,
     onNavigateHistorial: () -> Unit,
     onNavigateEstadisticas: () -> Unit,
-    onNavigateConfiguracion: () -> Unit
+    onNavigateConfiguracion: () -> Unit,
+    onOpenDrawer: () -> Unit
 ) {
+    val context = LocalContext.current
+    val preferencesManager = remember { PreferencesManager(context) }
     val tarjetas by viewModel.todasLasTarjetas.collectAsState(initial = emptyList())
     val bancos by viewModel.todosBancos.collectAsState(initial = emptyList())
     val deudaTotal by viewModel.deudaTotal.collectAsState(initial = 0.0)
 
+    // Cargar filtro guardado
+    val filtroGuardado by preferencesManager.filtroFechaFlow.collectAsState(initial = "PROXIMAS_3_SEMANAS")
+
     val scope = rememberCoroutineScope()
 
-    // Estado del filtro - Por defecto próximas 3 semanas
-    var filtroSeleccionado by remember { mutableStateOf(FiltroFecha.PROXIMAS_3_SEMANAS) }
+    // Estado del filtro - Cargar desde preferencias
+    var filtroSeleccionado by remember {
+        mutableStateOf(
+            when (filtroGuardado) {
+                "ESTA_SEMANA" -> FiltroFecha.ESTA_SEMANA
+                "ESTE_MES" -> FiltroFecha.ESTE_MES
+                "TODAS" -> FiltroFecha.TODAS
+                else -> FiltroFecha.PROXIMAS_3_SEMANAS
+            }
+        )
+    }
     var expandedFiltro by remember { mutableStateOf(false) }
+
+    // Actualizar filtro cuando cambie el valor guardado
+    LaunchedEffect(filtroGuardado) {
+        filtroSeleccionado = when (filtroGuardado) {
+            "ESTA_SEMANA" -> FiltroFecha.ESTA_SEMANA
+            "ESTE_MES" -> FiltroFecha.ESTE_MES
+            "TODAS" -> FiltroFecha.TODAS
+            else -> FiltroFecha.PROXIMAS_3_SEMANAS
+        }
+    }
 
     // Estado para el menú FAB
     var expandedFab by remember { mutableStateOf(false) }
@@ -74,10 +101,15 @@ fun PantallaListaTarjetas(
             TopAppBar(
                 title = {
                     Text(
-                        "Control de Tarjetas",
+                        "Control de Pagos",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, "Menú")
+                    }
                 },
                 actions = {
                     IconButton(onClick = onNavigateEstadisticas) {
@@ -342,6 +374,9 @@ fun PantallaListaTarjetas(
                                     onClick = {
                                         filtroSeleccionado = FiltroFecha.PROXIMAS_3_SEMANAS
                                         expandedFiltro = false
+                                        scope.launch {
+                                            preferencesManager.setFiltroFecha("PROXIMAS_3_SEMANAS")
+                                        }
                                     },
                                     leadingIcon = {
                                         if (filtroSeleccionado == FiltroFecha.PROXIMAS_3_SEMANAS) {
@@ -354,6 +389,9 @@ fun PantallaListaTarjetas(
                                     onClick = {
                                         filtroSeleccionado = FiltroFecha.ESTA_SEMANA
                                         expandedFiltro = false
+                                        scope.launch {
+                                            preferencesManager.setFiltroFecha("ESTA_SEMANA")
+                                        }
                                     },
                                     leadingIcon = {
                                         if (filtroSeleccionado == FiltroFecha.ESTA_SEMANA) {
@@ -366,6 +404,9 @@ fun PantallaListaTarjetas(
                                     onClick = {
                                         filtroSeleccionado = FiltroFecha.ESTE_MES
                                         expandedFiltro = false
+                                        scope.launch {
+                                            preferencesManager.setFiltroFecha("ESTE_MES")
+                                        }
                                     },
                                     leadingIcon = {
                                         if (filtroSeleccionado == FiltroFecha.ESTE_MES) {
@@ -378,6 +419,9 @@ fun PantallaListaTarjetas(
                                     onClick = {
                                         filtroSeleccionado = FiltroFecha.TODAS
                                         expandedFiltro = false
+                                        scope.launch {
+                                            preferencesManager.setFiltroFecha("TODAS")
+                                        }
                                     },
                                     leadingIcon = {
                                         if (filtroSeleccionado == FiltroFecha.TODAS) {

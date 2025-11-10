@@ -1,5 +1,7 @@
 package com.example.controltarjetas.ui
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,6 +21,7 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaAgregarEditarTarjeta(
@@ -29,7 +32,7 @@ fun PantallaAgregarEditarTarjeta(
     val bancos by viewModel.todosBancos.collectAsState(initial = emptyList())
 
     var bancoSeleccionadoId by remember { mutableStateOf<Int?>(null) }
-    var tipoTarjeta by remember { mutableStateOf("Crédito") }
+    val tipoTarjeta = "Crédito"
     var deudaTotal by remember { mutableStateOf("") }
     var pagoMinimo by remember { mutableStateOf("") }
     var notas by remember { mutableStateOf("") }
@@ -38,7 +41,6 @@ fun PantallaAgregarEditarTarjeta(
     var mesSeleccionado by remember { mutableStateOf(YearMonth.now()) }
 
     var expandedBanco by remember { mutableStateOf(false) }
-    var expandedTipo by remember { mutableStateOf(false) }
     var expandedMes by remember { mutableStateOf(false) }
 
     val tiposTarjeta = listOf("Crédito", "Débito")
@@ -56,7 +58,6 @@ fun PantallaAgregarEditarTarjeta(
             val tarjeta = viewModel.obtenerTarjetaPorId(tarjetaId)
             tarjeta?.let {
                 bancoSeleccionadoId = it.bancoId
-                tipoTarjeta = it.tipoTarjeta
                 deudaTotal = it.deudaTotal.toString()
                 pagoMinimo = it.pagoMinimo?.toString() ?: ""
                 notas = it.notas ?: ""
@@ -230,36 +231,6 @@ fun PantallaAgregarEditarTarjeta(
                 }
             }
 
-            // Tipo de tarjeta
-            ExposedDropdownMenuBox(
-                expanded = expandedTipo,
-                onExpandedChange = { expandedTipo = it }
-            ) {
-                OutlinedTextField(
-                    value = tipoTarjeta,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Tipo de Tarjeta *") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTipo) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = expandedTipo,
-                    onDismissRequest = { expandedTipo = false }
-                ) {
-                    tiposTarjeta.forEach { tipo ->
-                        DropdownMenuItem(
-                            text = { Text(tipo) },
-                            onClick = {
-                                tipoTarjeta = tipo
-                                expandedTipo = false
-                            }
-                        )
-                    }
-                }
-            }
 
             // Deuda total
             OutlinedTextField(

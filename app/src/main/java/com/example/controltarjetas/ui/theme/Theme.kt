@@ -12,20 +12,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Paleta de colores personalizada
-private val Purple80 = Color(0xFFD0BCFF)
-private val PurpleGrey80 = Color(0xFFCCC2DC)
-private val Pink80 = Color(0xFFEFB8C8)
-private val Purple40 = Color(0xFF6650a4)
-private val PurpleGrey40 = Color(0xFF625b71)
-private val Pink40 = Color(0xFF7D5260)
-
-// Colores para deudas y errores
-private val ErrorDark = Color(0xFFFFB4AB)
-private val ErrorLight = Color(0xFFBA1A1A)
-private val ErrorContainerDark = Color(0xFF93000A)
-private val ErrorContainerLight = Color(0xFFFFDAD6)
-
 // Colores personalizados para modo oscuro
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF6200EE),
@@ -38,14 +24,14 @@ private val DarkColorScheme = darkColorScheme(
     secondaryContainer = Color(0xFF004D48),
     onSecondaryContainer = Color(0xFF6FF6EE),
 
-    tertiary = Color(0xFF7D5260),
-    onTertiary = Color.White,
+    tertiary = Color(0xFFEFB8C8),
+    onTertiary = Color(0xFF492532),
     tertiaryContainer = Color(0xFF633B48),
     onTertiaryContainer = Color(0xFFFFD8E4),
 
-    error = ErrorDark,
+    error = Color(0xFFFFB4AB),
     onError = Color(0xFF690005),
-    errorContainer = ErrorContainerDark,
+    errorContainer = Color(0xFF93000A),
     onErrorContainer = Color(0xFFFFDAD6),
 
     background = Color(0xFF1C1B1F),
@@ -60,26 +46,26 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF49454F)
 )
 
-// Colores personalizados para modo claro
+// Colores mejorados para modo claro - Con mejor contraste
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF6200EE),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFEADDFF),
-    onPrimaryContainer = Color(0xFF21005D),
+    primaryContainer = Color(0xFFE8DEF8),
+    onPrimaryContainer = Color(0xFF1F0054),
 
-    secondary = Color(0xFF03DAC5),
+    secondary = Color(0xFF006B5D),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCCF8F4),
-    onSecondaryContainer = Color(0xFF002020),
+    secondaryContainer = Color(0xFFB2F1E8),
+    onSecondaryContainer = Color(0xFF00201B),
 
     tertiary = Color(0xFF7D5260),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFD8E4),
     onTertiaryContainer = Color(0xFF31111D),
 
-    error = ErrorLight,
+    error = Color(0xFFBA1A1A),
     onError = Color.White,
-    errorContainer = ErrorContainerLight,
+    errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
 
     background = Color(0xFFFFFBFE),
