@@ -21,6 +21,9 @@ interface InstitucionFinancieraDao {
     @Query("SELECT * FROM instituciones_financieras WHERE id = :id")
     suspend fun obtenerInstitucionPorId(id: Int): InstitucionFinanciera?
 
+    @Query("SELECT * FROM instituciones_financieras")
+    suspend fun obtenerTodasInstitucionesDirecto(): List<InstitucionFinanciera>
+
     @Query("SELECT * FROM instituciones_financieras WHERE tipoInversion = :tipo ORDER BY nombreInstitucion ASC")
     fun obtenerInstitucionesPorTipo(tipo: String): Flow<List<InstitucionFinanciera>>
 }

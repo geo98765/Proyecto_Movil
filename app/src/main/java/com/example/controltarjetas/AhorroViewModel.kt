@@ -110,6 +110,9 @@ class AhorroViewModel(application: Application) : AndroidViewModel(application) 
         ahorroRepository.eliminar(ahorro)
     }
 
+    fun obtenerAhorrosPorInstitucion(institucionId: Int): Flow<List<Ahorro>> {
+        return ahorroRepository.obtenerPorInstitucion(institucionId)
+    }
     suspend fun obtenerPorId(id: Int): Ahorro? {
         return ahorroRepository.obtenerPorId(id)
     }

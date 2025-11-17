@@ -21,6 +21,7 @@ import com.example.controltarjetas.notifications.NotificationScheduler
 import com.example.controltarjetas.preferences.PreferencesManager
 import com.example.controltarjetas.ui.NavegacionApp
 import com.example.controltarjetas.ui.theme.ControlTarjetasTheme
+import com.example.controltarjetas.workers.RendimientosWorker
 
 class MainActivity : ComponentActivity() {
 
@@ -55,6 +56,9 @@ class MainActivity : ComponentActivity() {
         } else {
             // Android 12 o menor, no necesita permiso
             NotificationScheduler(this).scheduleNotifications()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            RendimientosWorker.programarActualizacionDiaria(this)
         }
 
         setContent {

@@ -38,9 +38,6 @@ fun PantallaListaTarjetas(
     onAgregarTarjeta: () -> Unit,
     onEditarTarjeta: (Tarjeta) -> Unit,
     onNavigateBancos: () -> Unit,
-    onNavigateHistorial: () -> Unit,
-    onNavigateEstadisticas: () -> Unit,
-    onNavigateConfiguracion: () -> Unit,
     onOpenDrawer: () -> Unit
 ) {
     val context = LocalContext.current
@@ -114,40 +111,10 @@ fun PantallaListaTarjetas(
                         Icon(Icons.Default.Menu, "Menú")
                     }
                 },
-                actions = {
-                    IconButton(onClick = onNavigateEstadisticas) {
-                        Icon(
-                            Icons.Default.Star,
-                            "Estadísticas",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    IconButton(onClick = onNavigateHistorial) {
-                        Icon(
-                            Icons.Default.Info,
-                            "Historial",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    IconButton(onClick = onNavigateBancos) {
-                        Icon(
-                            Icons.Default.CreditCard,
-                            "Bancos",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                    IconButton(onClick = onNavigateConfiguracion) {
-                        Icon(
-                            Icons.Default.Settings,
-                            "Configuración",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },

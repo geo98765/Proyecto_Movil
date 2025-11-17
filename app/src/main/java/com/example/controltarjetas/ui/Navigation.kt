@@ -44,8 +44,8 @@ sealed class Pantalla(val ruta: String, val titulo: String, val icono: androidx.
     }
     object InstitucionesFinancieras : Pantalla("instituciones_financieras", "Instituciones", Icons.Default.AccountBalance)
 
-    // NUEVA: Ruta para Rendimientos
-    object Rendimientos : Pantalla("rendimientos", "Rendimientos", Icons.Default.TrendingUp)
+    // Nueva ruta para Rendimientos
+    object Rendimientos : Pantalla("rendimientos", "Mis Rendimientos", Icons.Default.TrendingUp)
 }
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -88,7 +88,7 @@ fun NavegacionApp(
             navController = navController,
             startDestination = Pantalla.Lista.ruta
         ) {
-            // ===== RUTAS DE TARJETAS =====
+            // ===== RUTAS DE TARJETAS/PAGOS =====
 
             // Pantalla principal - Lista de tarjetas
             composable(Pantalla.Lista.ruta) {
@@ -102,15 +102,6 @@ fun NavegacionApp(
                     },
                     onNavigateBancos = {
                         navController.navigate(Pantalla.Bancos.ruta)
-                    },
-                    onNavigateHistorial = {
-                        navController.navigate(Pantalla.Historial.ruta)
-                    },
-                    onNavigateEstadisticas = {
-                        navController.navigate(Pantalla.Estadisticas.ruta)
-                    },
-                    onNavigateConfiguracion = {
-                        navController.navigate(Pantalla.Configuracion.ruta)
                     },
                     onOpenDrawer = {
                         scope.launch { drawerState.open() }
@@ -203,10 +194,6 @@ fun NavegacionApp(
                     },
                     onOpenDrawer = {
                         scope.launch { drawerState.open() }
-                    },
-                    // NUEVO: Agregar navegación a rendimientos
-                    onNavigateRendimientos = {
-                        navController.navigate(Pantalla.Rendimientos.ruta)
                     }
                 )
             }
@@ -251,10 +238,14 @@ fun NavegacionApp(
                 )
             }
 
-            // NUEVA: Pantalla de rendimientos
+            // ===== NUEVA PANTALLA DE RENDIMIENTOS =====
             composable(Pantalla.Rendimientos.ruta) {
                 PantallaRendimientos(
-                    viewModel = ahorroViewModel
+                    viewModel = ahorroViewModel,
+                    institucionViewModel = institucionViewModel,
+                    onOpenDrawer = {
+                        scope.launch { drawerState.open() }
+                    }
                 )
             }
         }
@@ -272,36 +263,24 @@ fun DrawerContent(
             .padding(vertical = 16.dp)
     ) {
         // Header del drawer
-        Surface(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            shape = MaterialTheme.shapes.medium
+                .padding(horizontal = 28.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountBalanceWallet,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Control Financiero",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Text(
-                    text = "Gestiona tus finanzas",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+            Icon(
+                Icons.Default.AccountBalance,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Control Financiero",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
@@ -321,7 +300,7 @@ fun DrawerContent(
             onClick = { onItemClick(Pantalla.Lista.ruta) }
         )
 
-        // Ahorros
+        // Mis Ahorros
         DrawerItem(
             icon = Icons.Default.Savings,
             label = "Mis Ahorros",
@@ -329,10 +308,10 @@ fun DrawerContent(
             onClick = { onItemClick(Pantalla.Ahorros.ruta) }
         )
 
-        // NUEVO: Rendimientos
+        // Mis Rendimientos (NUEVO)
         DrawerItem(
             icon = Icons.Default.TrendingUp,
-            label = "Rendimientos",
+            label = "Mis Rendimientos",
             isSelected = currentRoute == Pantalla.Rendimientos.ruta,
             onClick = { onItemClick(Pantalla.Rendimientos.ruta) }
         )

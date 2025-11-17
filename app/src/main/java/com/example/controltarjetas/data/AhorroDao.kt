@@ -24,6 +24,9 @@ interface AhorroDao {
     @Query("SELECT * FROM ahorros WHERE institucionId = :institucionId ORDER BY fechaCreacion DESC")
     fun obtenerAhorrosPorInstitucion(institucionId: Int): Flow<List<Ahorro>>
 
+    @Query("SELECT * FROM ahorros")
+    suspend fun obtenerTodosAhorrosDirecto(): List<Ahorro>
+
     @Query("DELETE FROM ahorros WHERE id = :id")
     suspend fun eliminarPorId(id: Int)
 
